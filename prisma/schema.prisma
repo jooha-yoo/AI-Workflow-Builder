@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Workflow {
+  id           String            @id @default(cuid())
+  name         String
+  systemPrompt String
+  steps        String // JSON-encoded string[] — ordered steps / decision logic, folded into the system prompt
+  enabledTools String // JSON-encoded string[] of tool ids from lib/tools registry
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  versions     WorkflowVersion[]
+}
+
+// A snapshot of a Workflow's fields taken on every create/update/restore, so
+// edits can be reviewed and reverted. Workflow itself always holds the
+// current state; WorkflowVersion is an append-only history of past states.
+model WorkflowVersion {
+  id            String   @id @default(cuid())
+  workflowId    String
+  workflow      Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  name          String
+  systemPrompt  String
+  steps         String
+  enabledTools  String
+  createdAt     DateTime @default(now())
+
+  @@unique([workflowId, versionNumber])
+}
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  workflowId String?
+  to         String
+  subject    String
+  body       String
+  createdAt  DateTime @default(now())
+}
