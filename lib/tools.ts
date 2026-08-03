@@ -55,6 +55,8 @@ export const TOOLS: ToolDefinition[] = [
       const query = String(input.query ?? "");
       const apiKey = process.env.TAVILY_API_KEY;
 
+      // No key configured — fall back to a mock result instead of erroring,
+      // so the app still runs (and this tool is still exercisable) with zero setup.
       if (!apiKey) {
         return {
           query,

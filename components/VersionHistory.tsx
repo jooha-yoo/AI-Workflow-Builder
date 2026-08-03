@@ -72,6 +72,7 @@ export default function VersionHistory({
               {versions.map((v, i) => (
                 <li key={v.id} className="flex items-center justify-between py-2 text-sm">
                   <div>
+                    {/* API returns versions ordered desc by versionNumber, so index 0 is current */}
                     <span className="font-medium">v{v.versionNumber}</span>
                     {i === 0 && (
                       <span className="ml-2 text-xs text-emerald-600 font-medium">current</span>

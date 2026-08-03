@@ -22,6 +22,8 @@ import SortableStep from "./SortableStep";
 import VersionHistory from "./VersionHistory";
 
 type ToolMeta = { id: string; label: string; description: string };
+// `id` here is a client-only identity for React keys and drag-and-drop —
+// steps are persisted as plain strings, the id never leaves this component.
 type Step = { id: string; text: string };
 
 export default function WorkflowForm({ workflow }: { workflow?: WorkflowDTO }) {
@@ -39,6 +41,8 @@ export default function WorkflowForm({ workflow }: { workflow?: WorkflowDTO }) {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumped after a restore to re-trigger VersionHistory's fetch effect (it's
+  // keyed on this value) so the newly-created restore version shows up.
   const [versionRefreshToken, setVersionRefreshToken] = useState(0);
 
   const sensors = useSensors(

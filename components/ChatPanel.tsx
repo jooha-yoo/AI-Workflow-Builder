@@ -10,6 +10,10 @@ type DisplayItem =
   | { type: "text"; text: string }
   | { type: "tool"; id: string; name: string; input: unknown; output?: unknown };
 
+// Claude's API represents a tool's result as a *user*-role message, not part
+// of the assistant's turn. Rendered literally that would show up as a stray
+// user bubble, so we match each tool_result back to its tool_use by id and
+// fold the output into the same card instead of creating a new item.
 function buildDisplayItems(messages: MessageParam[]): DisplayItem[] {
   const items: DisplayItem[] = [];
   const toolIndexById = new Map<string, number>();
@@ -84,6 +88,9 @@ function renderItem(item: DisplayItem, key: string | number) {
 }
 
 export default function ChatPanel({ workflow }: { workflow: WorkflowDTO }) {
+  // messages is the canonical history (only ever replaced wholesale by a
+  // "done" event); liveItems is a scratch buffer for the turn currently
+  // streaming in, cleared once "done" arrives and messages takes over.
   const [messages, setMessages] = useState<MessageParam[]>([]);
   const [liveItems, setLiveItems] = useState<DisplayItem[]>([]);
   const [input, setInput] = useState("");
@@ -97,6 +104,9 @@ export default function ChatPanel({ workflow }: { workflow: WorkflowDTO }) {
 
   function handleStreamEvent(event: ChatStreamEvent) {
     if (event.type === "text_delta") {
+      // Appends to the last item if it's text, else starts a new one. This
+      // relies on Claude streaming one content block fully before the next
+      // starts, so consecutive text deltas always belong to the same block.
       setLiveItems((prev) => {
         const last = prev[prev.length - 1];
         if (last?.type === "text") {
@@ -156,6 +166,8 @@ export default function ChatPanel({ workflow }: { workflow: WorkflowDTO }) {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
+        // The last "line" may be a partial chunk cut off mid-JSON — hold it
+        // back and prepend it to the next read instead of parsing it early.
         buffer = lines.pop() ?? "";
         for (const line of lines) {
           if (line.trim()) handleStreamEvent(JSON.parse(line) as ChatStreamEvent);

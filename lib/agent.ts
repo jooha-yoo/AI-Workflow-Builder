@@ -3,6 +3,9 @@ import type { MessageParam, ContentBlockParam } from "@anthropic-ai/sdk/resource
 import { getToolsByIds } from "./tools";
 
 const MODEL = "claude-sonnet-5";
+// Safety cap on how many times one user turn can bounce between Claude and
+// tool execution before we give up and return an explanatory message instead
+// of looping forever.
 const MAX_TOOL_ITERATIONS = 8;
 
 export type AgentStreamEvent =
@@ -73,6 +76,8 @@ export async function* runAgentStream({
       messages: conversation,
     });
 
+    // Only forward text deltas — extended-thinking deltas also flow through
+    // this loop, and we don't want to stream Claude's raw reasoning to the UI.
     for await (const event of stream) {
       if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
         yield { type: "text_delta", text: event.delta.text };

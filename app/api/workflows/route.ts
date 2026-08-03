@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const systemPrompt = typeof body.systemPrompt === "string" ? body.systemPrompt.trim() : "";
   const steps = Array.isArray(body.steps) ? body.steps.filter((s: unknown) => typeof s === "string" && s.trim()) : [];
+  // Drop any tool id the client sends that isn't in our registry.
   const validToolIds = new Set(TOOLS.map((t) => t.id));
   const enabledTools = Array.isArray(body.enabledTools)
     ? body.enabledTools.filter((id: unknown) => typeof id === "string" && validToolIds.has(id))

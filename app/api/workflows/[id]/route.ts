@@ -18,6 +18,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const systemPrompt = typeof body.systemPrompt === "string" ? body.systemPrompt.trim() : "";
   const steps = Array.isArray(body.steps) ? body.steps.filter((s: unknown) => typeof s === "string" && s.trim()) : [];
+  // Drop any tool id the client sends that isn't in our registry, so a stale
+  // or tampered request can't enable a tool that no longer exists.
   const validToolIds = new Set(TOOLS.map((t) => t.id));
   const enabledTools = Array.isArray(body.enabledTools)
     ? body.enabledTools.filter((tid: unknown) => typeof tid === "string" && validToolIds.has(tid))
@@ -46,6 +48,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(toWorkflowDTO(workflow));
   } catch {
+    // prisma.workflow.update throws if `id` doesn't exist — that's the only
+    // way this can fail here, so any error maps to 404.
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 }

@@ -5,12 +5,22 @@ set of tools plus a sequence of steps/decision logic — and chatting with them.
 Workflows are saved to a local SQLite database so they can be edited and
 reused.
 
+## Meets the brief
+
+| Requirement | How |
+| --- | --- |
+| Any frontend framework | React, via Next.js App Router — pages in [`app/`](app), components in [`components/`](components) |
+| Any backend framework | Next.js Route Handlers — API routes in [`app/api/`](app/api), see below |
+| Store workflows in a database | SQLite via Prisma — [`prisma/schema.prisma`](prisma/schema.prisma), local file `prisma/dev.db` |
+| Any LLM provider | Anthropic Claude, Messages API with tool use — [`lib/agent.ts`](lib/agent.ts) |
+| Runs locally, clear setup | No external services required to boot — see [Setup](#setup) below |
+
 ## Stack
 
 - **Frontend + Backend:** Next.js (App Router, TypeScript) — UI pages and API
-  routes live in the same app.
+  routes live in the same app, one process, one `npm run dev`.
 - **Database:** SQLite via Prisma (file `prisma/dev.db`).
-- **LLM:** Anthropic Claude (Messages API with tool use).
+- **LLM:** Anthropic Claude (Messages API with tool use + streaming).
 
 ## How it works
 
@@ -28,9 +38,25 @@ When you chat with a workflow, the backend (`app/api/chat/route.ts` →
 the conversation, and if Claude responds with a `tool_use` block, execute the
 corresponding tool in `lib/tools.ts`, feed the result back, and repeat until
 Claude returns a final text answer (capped at 8 tool round-trips per turn to
-avoid runaway loops). The full message history — including every tool call
-and its result — is sent back to the browser, so the chat UI can render each
-intermediate step, not just the final answer.
+avoid runaway loops). Every step of that loop — each chunk of text, each tool
+call, each tool result — is streamed to the browser as it happens (newline-
+delimited JSON over a plain response stream), so the chat UI shows tool calls
+and intermediate steps live, not just the final answer.
+
+Every save (create, edit, or restore) also snapshots the workflow's fields
+into a `WorkflowVersion` row, so past versions can be reviewed and restored
+from the edit page without losing anything.
+
+### Backend routes (`app/api/`)
+
+| Route | Method(s) | Does |
+| --- | --- | --- |
+| `/api/workflows` | GET, POST | List / create workflows |
+| `/api/workflows/[id]` | GET, PUT, DELETE | Read, update, or delete one workflow |
+| `/api/workflows/[id]/versions` | GET | List a workflow's saved versions |
+| `/api/workflows/[id]/versions/[versionId]/restore` | POST | Restore a past version |
+| `/api/chat` | POST | Run the agent loop, streamed |
+| `/api/tools` | GET | List available tools for the builder UI |
 
 ### Tools
 
@@ -86,6 +112,10 @@ loop.
 
 5. Open [http://localhost:3000](http://localhost:3000). Create a workflow,
    then click **Chat** to talk to it.
+
+**If a route 404s right after adding/pulling new files:** this is a Turbopack
+dev-server cache quirk, not an app bug — stop the server and run
+`rm -rf .next && npm run dev`. `npm run build && npm start` is unaffected.
 
 ## Notes / design decisions
 

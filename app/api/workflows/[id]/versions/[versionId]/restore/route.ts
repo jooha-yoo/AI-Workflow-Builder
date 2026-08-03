@@ -9,6 +9,8 @@ export async function POST(
   const { id, versionId } = await params;
 
   const version = await prisma.workflowVersion.findUnique({ where: { id: versionId } });
+  // The workflowId check matters: without it, a valid versionId belonging to
+  // a *different* workflow would restore into this one.
   if (!version || version.workflowId !== id) {
     return NextResponse.json({ error: "Version not found" }, { status: 404 });
   }
@@ -24,6 +26,8 @@ export async function POST(
           enabledTools: version.enabledTools,
         },
       });
+      // Snapshotting here means restoring v1 over v4 produces v5, not a
+      // rewritten v1 — the history stays append-only and nothing is lost.
       await saveWorkflowVersion(tx, updated);
       return updated;
     });
